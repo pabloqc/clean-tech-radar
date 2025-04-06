@@ -1,11 +1,53 @@
 <!DOCTYPE html>
-<html class="">
+<html>
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Clean Tech Radar</title>
     <script src="https://d3js.org/d3.v7.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Tailwind Configuration -->
+    <script>
+        tailwind.config = {
+            darkMode: 'class', // Use class-based dark mode instead of media query
+            theme: {
+                extend: {}
+            }
+        }
+    </script>
+    <!-- Dark mode initialization script -->
+    <script>
+        // Apply theme based on stored preference immediately to prevent theme flashing
+        (function() {
+            const THEME_STORAGE_KEY = 'themePreference';
+            const THEME_SYSTEM = 'system';
+            const THEME_LIGHT = 'light';
+            const THEME_DARK = 'dark';
+            
+            // Get stored preference or default to system
+            const storedPreference = localStorage.getItem(THEME_STORAGE_KEY) || THEME_SYSTEM;
+            
+            // Check if system is dark mode
+            const isSystemDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+            
+            // Determine if dark mode should be applied
+            const shouldApplyDark = storedPreference === THEME_DARK || 
+                                  (storedPreference === THEME_SYSTEM && isSystemDark);
+            
+            // Apply the appropriate class to html element immediately
+            if (shouldApplyDark) {
+                document.documentElement.classList.add('dark');
+            } else {
+                document.documentElement.classList.remove('dark');
+            }
+            
+            console.log('Initial theme applied:', {
+                preference: storedPreference,
+                systemDark: isSystemDark,
+                darkMode: shouldApplyDark
+            });
+        })();
+    </script>
     <!-- <link rel="stylesheet" href="/static/styles.css"> -->
 </head>
 <body class="bg-gray-100 dark:bg-gray-900 font-sans p-4 min-h-screen text-gray-900 dark:text-gray-100">
@@ -31,6 +73,14 @@
                 <option value="In Discovery">In Discovery</option>
                 <option value="Not Recommended">Not Recommended</option>
             </select>
+            <!-- Theme Toggle Button -->
+            <button id="theme-toggle" class="ml-4 p-2 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600">
+                Theme: System
+            </button>
+            <!-- Reset Filters Button -->
+            <button id="reset-filters" onclick="resetFilters()" class="ml-2 p-2 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600">
+                Reset Filters
+            </button>
         </div>
         <!-- Dark Mode Toggle -->
         <!-- Removed toggle switch structure -->
