@@ -23,9 +23,10 @@ const NODE_RADIUS = 6;
 const NODE_LABEL_X_OFFSET = 10;
 const NODE_LABEL_Y_OFFSET = 4;
 const NODE_FONT_SIZE = '10px';
-const NODE_COLLIDE_RADIUS = 20; // Collision radius (includes label space)
+const NODE_COLLIDE_RADIUS = 35; // Increased from 20 to prevent overlapping (includes label space)
 const NODE_FORCE_STRENGTH = 0.05; // Strength of positioning forces - Reduced from 0.1
 const SIMULATION_TICKS = 200; // How long to run the simulation
+const RING_LABEL_EXCLUSION_RADIUS = 40; // Radius around ring labels where nodes can't appear
 
 // UI Selectors
 const RADAR_CONTAINER_SELECTOR = '.radar-container';
@@ -45,6 +46,8 @@ const RESIZE_DEBOUNCE_DELAY = 250; // ms delay for resize redraw
 // =============================================================================
 
 let radarData = []; // Holds the raw data fetched from the server
+let lastModified = ""; // Holds the last modified date
+let selectedNodeId = null; // Track currently selected node
 
 // =============================================================================
 // Utility Functions
@@ -124,6 +127,15 @@ function showDetails(item) {
         return;
     }
 
+    // If clicking the same node again, hide panel and clear selection
+    if (selectedNodeId === item.id) {
+        closeDetails();
+        return;
+    }
+
+    // Store the selected node id
+    selectedNodeId = item.id;
+
     title.textContent = item.label;
     content.innerHTML = `
         <div class="details-item">
@@ -142,7 +154,7 @@ function showDetails(item) {
             <h4>Description</h4>
             <p>${item.description || 'No description available.'}</p>
         </div>
-        ${item.moved ? '<div class="details-item"><p class="moved">This item has moved</p></div>' : ''}
+        ${item.moved ? '<div class="details-item"><p class="moved">* This item has been moved recently.</p></div>' : ''}
     `;
 
     panel.classList.add('open');
@@ -155,6 +167,7 @@ function closeDetails() {
     const panel = document.querySelector(DETAILS_PANEL_SELECTOR);
     if (panel) {
         panel.classList.remove('open');
+        selectedNodeId = null; // Clear selected node when closing panel
     }
 }
 
@@ -266,8 +279,11 @@ function calculateScales(radius) {
  * Draws the concentric rings and their labels.
  * @param {object} radarGroup The D3 selection of the main radar group.
  * @param {object} radiusScale The D3 scale for radius.
+ * @returns {Array} Array of ring label positions.
  */
 function drawRingsAndLabels(radarGroup, radiusScale) {
+    const ringLabelPositions = [];
+    
     // Draw rings (from outer to inner)
     RINGS.forEach((ring, i) => {
         // Index `i` maps to visual rings (0=inner), but scale maps 0=center.
@@ -284,11 +300,19 @@ function drawRingsAndLabels(radarGroup, radiusScale) {
 
         // Add ring labels inside the rings (except for the center)
         if (ringIndexForScale > 0) {
-             const labelY = -radiusScale(ringIndexForScale - 0.5) ; // Position label in middle of ring band
+             const labelY = -radiusScale(ringIndexForScale) + RING_LABEL_Y_OFFSET;
+             const labelX = 0;
+             
+             // Store label position for collision avoidance
+             ringLabelPositions.push({
+                x: labelX,
+                y: labelY
+             });
+             
              radarGroup.append('text')
-                .attr('x', 0)
+                .attr('x', labelX)
                 // Position label slightly above the middle of the ring band
-                .attr('y', -radiusScale(ringIndexForScale) + RING_LABEL_Y_OFFSET)
+                .attr('y', labelY)
                 .attr('text-anchor', 'middle')
                 .attr('font-size', '14px')
                 .attr('font-weight', 'bold') // Make ring labels bold
@@ -297,6 +321,8 @@ function drawRingsAndLabels(radarGroup, radiusScale) {
                 .text(RINGS[i]); // Use original index for correct label
         }
     });
+    
+    return ringLabelPositions;
 }
 
 /**
@@ -369,9 +395,8 @@ function prepareNodesForSimulation(data, radiusScale, angleSlice) {
         const quadrantIndex = QUADRANTS.indexOf(item.quadrant); // 0 = first quadrant
 
         if (ringIndex === -1 || quadrantIndex === -1) {
-            console.warn(`Item "${item.label}" has invalid ring or quadrant:`, item.ring, item.quadrant);
-            // Assign default position or skip? For now, assign center.
-             return { ...item, id: index, x: 0, y: 0, targetX: 0, targetY: 0, valid: false };
+            // Invalid ring or quadrant - assign to center
+            return { ...item, id: index, x: 0, y: 0, targetX: 0, targetY: 0, valid: false };
         }
 
         // Calculate target radius: middle of the assigned ring band
@@ -396,6 +421,7 @@ function prepareNodesForSimulation(data, radiusScale, angleSlice) {
             y: targetY,
             targetX: targetX, // Store target for simulation forces
             targetY: targetY,
+            targetRadius: targetRadius, // Store target radius for avoidLabel force
             valid: true
         };
     }).filter(node => node.valid); // Filter out nodes with invalid ring/quadrant
@@ -404,15 +430,37 @@ function prepareNodesForSimulation(data, radiusScale, angleSlice) {
 /**
  * Creates, configures, and runs the D3 force simulation.
  * @param {Array} nodes The array of node objects.
+ * @param {Array} ringLabelPositions Array of ring label positions to avoid
  * @returns {object} The configured D3 force simulation object.
  */
-function createAndRunSimulation(nodes) {
+function createAndRunSimulation(nodes, ringLabelPositions) {
     const simulation = d3.forceSimulation(nodes)
         // Prevent nodes from overlapping significantly
         .force("collide", d3.forceCollide().radius(NODE_COLLIDE_RADIUS))
         // Pull nodes towards their target X/Y positions
         .force("x", d3.forceX(d => d.targetX).strength(NODE_FORCE_STRENGTH))
         .force("y", d3.forceY(d => d.targetY).strength(NODE_FORCE_STRENGTH))
+        // Add custom force to avoid label positions without affecting ring placement
+        .force("avoidLabels", d => {
+            // Check if node is too close to any ring label
+            for (const labelPos of ringLabelPositions) {
+                const dx = d.x - labelPos.x;
+                const dy = d.y - labelPos.y;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+                
+                if (distance < RING_LABEL_EXCLUSION_RADIUS) {
+                    // If too close to a label, gently push away in the same circular arc
+                    // This maintains the correct ring radius while moving around the circle
+                    const angle = Math.atan2(d.y, d.x);
+                    const ringRadius = Math.sqrt(d.targetX * d.targetX + d.targetY * d.targetY);
+                    
+                    // Calculate new position at same radius but slightly different angle
+                    const newAngle = angle + 0.1; // Small angle shift
+                    d.vx += (Math.cos(newAngle) * ringRadius - d.x) * 0.05;
+                    d.vy += (Math.sin(newAngle) * ringRadius - d.y) * 0.05;
+                }
+            }
+        })
         .stop(); // Stop simulation initially, we'll tick manually
 
     // Run the simulation for a fixed number of ticks to settle positions
@@ -464,8 +512,7 @@ function drawNodesOnRadar(radarGroup, nodes, simulation) {
  */
 function drawRadar(data) {
     if (!data || data.length === 0) {
-        console.warn("No data provided to drawRadar.");
-        // Optionally clear the radar or show a message
+        // Clear the radar
         d3.select(RADAR_SVG_SELECTOR).selectAll('*').remove();
         return;
     }
@@ -479,18 +526,17 @@ function drawRadar(data) {
     const { radiusScale, angleSlice } = calculateScales(radius);
 
     // 3. Draw Static Elements
-    drawRingsAndLabels(radarGroup, radiusScale);
+    const ringLabelPositions = drawRingsAndLabels(radarGroup, radiusScale);
     drawQuadrantLinesAndLabels(radarGroup, radius, angleSlice);
 
     // 4. Prepare Node Data
     const nodes = prepareNodesForSimulation(data, radiusScale, angleSlice);
-     if (nodes.length === 0) {
-         console.warn("No valid nodes to draw after preparation.");
-         return;
-     }
+    if (nodes.length === 0) {
+        return;
+    }
 
     // 5. Setup and Run Simulation
-    const simulation = createAndRunSimulation(nodes);
+    const simulation = createAndRunSimulation(nodes, ringLabelPositions);
 
     // 6. Draw Nodes
     drawNodesOnRadar(radarGroup, nodes, simulation);
@@ -502,9 +548,10 @@ function drawRadar(data) {
 // =============================================================================
 
 /**
- * Fetches radar data from the API and initiates drawing.
+ * Fetches the radar data from the API and initializes the visualization.
  */
 function initializeRadar() {
+    // Fetch data from API
     fetch('/api/radar')
         .then(response => {
             if (!response.ok) {
@@ -513,61 +560,32 @@ function initializeRadar() {
             return response.json();
         })
         .then(data => {
-            if (!data || !Array.isArray(data)) {
-                 console.error("Invalid data received from API:", data);
-                 throw new Error("Invalid data format received from API.");
-            }
-            radarData = data; // Store globally
-            drawRadar(radarData); // Initial draw of the radar
-            createList(radarData); // Initial draw of the list
+            // Store in global variable for filtering
+            radarData = data.items || [];
+            lastModified = data.lastModified || "";
+            
+            // Initialize radar and list views
+            drawRadar(radarData);
+            createList(radarData);
+            
+            // Setup event listeners
+            window.addEventListener('resize', debounce(() => {
+                drawRadar(radarData);
+            }, RESIZE_DEBOUNCE_DELAY));
+            
+            // Make the closeDetails function available globally
+            window.closeDetails = closeDetails;
+            window.applyFilters = applyFilters;
         })
         .catch(error => {
-            console.error('Error fetching or processing radar data:', error);
-            // Display an error message to the user?
-            const container = d3.select(RADAR_CONTAINER_SELECTOR);
-            if(container) {
-                container.html('<p style="color: red; text-align: center;">Could not load radar data.</p>');
-            }
+            console.error('Error loading radar data:', error);
+            document.querySelector(RADAR_CONTAINER_SELECTOR).innerHTML = `
+                <div class="error-message">
+                    <p>Unable to load radar data. Please try again later.</p>
+                    <p>Error: ${error.message}</p>
+                </div>`;
         });
 }
 
-// Debounced resize handler
-const handleResize = debounce(() => {
-    if (radarData.length > 0) {
-        console.log("Redrawing radar due to resize."); // Log resize redraw
-        drawRadar(radarData);
-    }
-}, RESIZE_DEBOUNCE_DELAY);
-
-// Add event listeners when the DOM is ready
-document.addEventListener('DOMContentLoaded', () => {
-    initializeRadar(); // Fetch data and draw initially
-
-    // Add resize listener
-    window.addEventListener('resize', handleResize);
-
-    // Add listeners for filters (if they exist)
-    const quadrantFilter = document.querySelector(QUADRANT_FILTER_SELECTOR);
-    const statusFilter = document.querySelector(STATUS_FILTER_SELECTOR);
-    if (quadrantFilter) quadrantFilter.addEventListener('change', applyFilters);
-    if (statusFilter) statusFilter.addEventListener('change', applyFilters);
-
-    // Add listener for details panel close button (assuming one exists)
-    const closeBtn = document.querySelector(`${DETAILS_PANEL_SELECTOR} .close-button`);
-    if (closeBtn) {
-        closeBtn.addEventListener('click', closeDetails);
-    } else {
-        // Fallback: Close panel if clicking outside the details content (basic)
-        // This might interfere with other clicks, use with caution or a dedicated overlay.
-        // document.addEventListener('click', (event) => {
-        //     const panel = document.querySelector(DETAILS_PANEL_SELECTOR);
-        //     if (panel && panel.classList.contains('open') && !panel.contains(event.target)) {
-        //          // Basic check if click is outside panel
-        //          // Check if the click target is NOT the node itself
-        //          if (!event.target.closest('.node')) {
-        //              closeDetails();
-        //          }
-        //     }
-        // });
-    }
-});
+// Initialize when document is ready
+document.addEventListener('DOMContentLoaded', initializeRadar);

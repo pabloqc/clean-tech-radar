@@ -18,6 +18,14 @@ h1 {
     margin-bottom: 2rem;
 }
 
+.last-modified {
+    text-align: center;
+    color: #666;
+    font-style: italic;
+    margin-top: -1.5rem;
+    margin-bottom: 2rem;
+}
+
 .radar-container {
     width: 100%;
     height: 90vh;

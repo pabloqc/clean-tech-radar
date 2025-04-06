@@ -16,6 +16,12 @@ const (
 	templatePath = "templates/index.html"
 )
 
+// RadarData represents the complete radar data structure.
+type RadarData struct {
+	LastModified string      `yaml:"LastModified" json:"lastModified"`
+	Items        []RadarItem `yaml:"Items" json:"items"`
+}
+
 // RadarItem represents a technology item in the radar.
 type RadarItem struct {
 	Label       string `yaml:"Label" json:"label"`
@@ -41,18 +47,58 @@ func (e *AppError) Error() string {
 }
 
 // loadRadarData reads and parses the radar data from a YAML file.
-func loadRadarData() ([]RadarItem, error) {
+func loadRadarData() (RadarData, error) {
 	file, err := os.ReadFile(dataFilePath)
 	if err != nil {
-		return nil, &AppError{Code: http.StatusInternalServerError, Message: "Failed to read radar data", Err: err}
+		return RadarData{}, &AppError{Code: http.StatusInternalServerError, Message: "Failed to read radar data", Err: err}
 	}
 
-	var items []RadarItem
-	if err := yaml.Unmarshal(file, &items); err != nil {
-		return nil, &AppError{Code: http.StatusInternalServerError, Message: "Failed to parse radar data", Err: err}
+	var yamlMap map[string]interface{}
+	if err := yaml.Unmarshal(file, &yamlMap); err != nil {
+		return RadarData{}, &AppError{Code: http.StatusInternalServerError, Message: "Failed to parse radar data", Err: err}
 	}
 
-	return items, nil
+	// Create our RadarData structure
+	var radarData RadarData
+
+	// Get LastModified field
+	if lastModified, ok := yamlMap["LastModified"]; ok {
+		if str, ok := lastModified.(string); ok {
+			radarData.LastModified = str
+		}
+	}
+
+	// Get Items field and parse the items
+	if items, ok := yamlMap["Items"].([]interface{}); ok {
+		for _, item := range items {
+			if itemMap, ok := item.(map[string]interface{}); ok {
+				radarItem := RadarItem{}
+
+				if label, ok := itemMap["Label"].(string); ok {
+					radarItem.Label = label
+				}
+				if quadrant, ok := itemMap["Quadrant"].(string); ok {
+					radarItem.Quadrant = quadrant
+				}
+				if ring, ok := itemMap["Ring"].(string); ok {
+					radarItem.Ring = ring
+				}
+				if moved, ok := itemMap["Moved"].(bool); ok {
+					radarItem.Moved = moved
+				}
+				if desc, ok := itemMap["Description"].(string); ok {
+					radarItem.Description = desc
+				}
+				if owners, ok := itemMap["Owners"].(string); ok {
+					radarItem.Owners = owners
+				}
+
+				radarData.Items = append(radarData.Items, radarItem)
+			}
+		}
+	}
+
+	return radarData, nil
 }
 
 // handleError writes an error response to the client.
@@ -87,7 +133,13 @@ func indexHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := tmpl.Execute(w, nil); err != nil {
+	data, err := loadRadarData()
+	if err != nil {
+		handleError(w, err)
+		return
+	}
+
+	if err := tmpl.Execute(w, data); err != nil {
 		handleError(w, &AppError{Code: http.StatusInternalServerError, Message: "Failed to render template", Err: err})
 	}
 }
