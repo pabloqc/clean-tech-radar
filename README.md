@@ -53,11 +53,11 @@ This project is inspired by the [ThoughtWorks Technology Radar](https://www.thou
 
 ## Project Structure
 
-- `main.go`: The main server file that handles HTTP requests and serves the application.
-- `data/radar.yaml`: Contains the data for the technologies displayed on the radar.
-- `templates/index.html`: The HTML template for the application.
-- `static/styles.css`: The CSS file for styling the application.
-- `static/radar.js`: The JavaScript file for rendering the radar and handling interactions.
+- `main.go`: The main Go application file that sets up the server and API endpoints.
+- `data/radar.yaml`: YAML file containing the technology data displayed on the radar.
+- `templates/index.html`: The main HTML template for the web application, including the structure and layout.
+- `static/radar.js`: The primary JavaScript file responsible for fetching data, rendering the D3.js radar visualization, handling user interactions (filtering, details panel), and managing dark mode.
+- `Dockerfile`: Defines the steps to build the application's Docker container image.
 
 ## Dependencies
 

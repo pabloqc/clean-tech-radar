@@ -5,42 +5,96 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Clean Tech Radar</title>
     <script src="https://d3js.org/d3.v7.min.js"></script>
-    <link rel="stylesheet" href="/static/styles.css">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Tailwind Configuration -->
+    <script>
+        tailwind.config = {
+            darkMode: 'class', // Use class-based dark mode instead of media query
+            theme: {
+                extend: {}
+            }
+        }
+    </script>
+    <!-- Dark mode initialization script -->
+    <script>
+        // Apply theme based on stored preference immediately to prevent theme flashing
+        (function() {
+            const THEME_STORAGE_KEY = 'themePreference';
+            const THEME_SYSTEM = 'system';
+            const THEME_LIGHT = 'light';
+            const THEME_DARK = 'dark';
+            
+            // Get stored preference or default to system
+            const storedPreference = localStorage.getItem(THEME_STORAGE_KEY) || THEME_SYSTEM;
+            
+            // Check if system is dark mode
+            const isSystemDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+            
+            // Determine if dark mode should be applied
+            const shouldApplyDark = storedPreference === THEME_DARK || 
+                                  (storedPreference === THEME_SYSTEM && isSystemDark);
+            
+            // Apply the appropriate class to html element immediately
+            if (shouldApplyDark) {
+                document.documentElement.classList.add('dark');
+            } else {
+                document.documentElement.classList.remove('dark');
+            }
+            
+            console.log('Initial theme applied:', {
+                preference: storedPreference,
+                systemDark: isSystemDark,
+                darkMode: shouldApplyDark
+            });
+        })();
+    </script>
+    <!-- <link rel="stylesheet" href="/static/styles.css"> -->
 </head>
-<body>
-    <div class="container">
-        <h1>Clean Tech Radar</h1>
-        <p class="last-modified">Last Modified: {{.LastModified}}</p>
-        <div class="radar-container">
-            <svg id="radar"></svg>
+<body class="bg-gray-100 dark:bg-gray-900 font-sans p-4 min-h-screen text-gray-900 dark:text-gray-100">
+    <div class="container mx-auto relative">
+        <h1 class="text-3xl font-bold text-center text-gray-800 dark:text-gray-200 mb-4">Clean Tech Radar</h1>
+        <p class="last-modified text-center text-gray-600 dark:text-gray-400 italic mb-8">Last Modified: {{.LastModified}}</p>
+        <div class="radar-container w-full h-[90vh] flex justify-center items-center mb-8">
+            <svg id="radar" class="w-full h-full"></svg>
         </div>
-        <div class="filter-container">
-            <label for="quadrant-filter">Filter by Quadrant:</label>
-            <select id="quadrant-filter" onchange="applyFilters()">
+        <div class="filter-container flex justify-center items-center space-x-4 mb-8 bg-white dark:bg-gray-800 p-4 rounded-lg shadow-md">
+            <label for="quadrant-filter" class="text-gray-700 dark:text-gray-300">Filter by Quadrant:</label>
+            <select id="quadrant-filter" onchange="applyFilters()" class="border border-gray-300 dark:border-gray-600 rounded p-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100">
                 <option value="">All</option>
                 <option value="Platforms">Platforms</option>
                 <option value="Tools">Tools</option>
                 <option value="Programming Languages & Frameworks">Programming Languages & Frameworks</option>
                 <option value="Techniques">Techniques</option>
             </select>
-            <label for="status-filter">Filter by Status:</label>
-            <select id="status-filter" onchange="applyFilters()">
+            <label for="status-filter" class="text-gray-700 dark:text-gray-300">Filter by Status:</label>
+            <select id="status-filter" onchange="applyFilters()" class="border border-gray-300 dark:border-gray-600 rounded p-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100">
                 <option value="">All</option>
                 <option value="Adopted">Adopted</option>
                 <option value="In Discovery">In Discovery</option>
                 <option value="Not Recommended">Not Recommended</option>
             </select>
+            <!-- Theme Toggle Button -->
+            <button id="theme-toggle" class="ml-4 p-2 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600">
+                Theme: System
+            </button>
+            <!-- Reset Filters Button -->
+            <button id="reset-filters" onclick="resetFilters()" class="ml-2 p-2 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600">
+                Reset Filters
+            </button>
         </div>
-        <div class="list-container">
-            <h2>Technologies by Quadrant</h2>
+        <!-- Dark Mode Toggle -->
+        <!-- Removed toggle switch structure -->
+        <!-- End Dark Mode Toggle -->
+        <div class="list-container bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md mb-8">
+            <h2 class="text-2xl font-semibold text-gray-700 dark:text-gray-300 mb-4">Technologies Quadrants</h2>
             <div id="quadrants-list"></div>
         </div>
-        <div id="details-panel" class="details-panel">
-            <div class="details-header">
-                <h3 id="details-title"></h3>
-                <button class="close-button" onclick="closeDetails()">×</button>
+        <div id="details-panel" class="details-panel fixed top-0 right-[-400px] w-[400px] h-screen bg-white dark:bg-gray-800 shadow-lg transition-all duration-300 ease-in-out z-50 border-l border-gray-200 dark:border-gray-700">
+            <div class="details-header flex justify-between items-center p-4 border-b border-gray-200 dark:border-gray-700">
+                <h3 id="details-title" class="text-xl font-semibold text-gray-800 dark:text-gray-200"></h3>
+                <button class="close-button text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 text-2xl font-bold leading-none p-1" onclick="closeDetails()">×</button>
             </div>
-            <div id="details-content" class="details-content"></div>
+            <div id="details-content" class="details-content p-4 overflow-y-auto h-[calc(100vh-65px)]"></div>
         </div>
     </div>
     <script src="/static/radar.js"></script>
