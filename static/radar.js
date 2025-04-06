@@ -5,10 +5,29 @@
 const RINGS = ['Not Recommended', 'In Discovery', 'Adopted']; // Inner to Outer visually
 const QUADRANTS = ['Platforms', 'Tools', 'Programming Languages & Frameworks', 'Techniques'];
 
+// Colors (Keep status colors consistent, adjust UI elements)
 const RING_COLORS = {
     'Adopted': '#006400', // Dark Green
-    'In Discovery': '#FFD700', // Yellow
-    'Not Recommended': '#FF0000' // Red
+    'In Discovery': '#B8860B', // DarkGoldenrod (better contrast than yellow on light/dark)
+    'Not Recommended': '#8B0000' // Dark Red
+};
+
+const LIGHT_THEME_COLORS = {
+    defaultNode: '#ccc',
+    ringStroke: '#ddd',
+    ringLabel: '#666',
+    quadLine: '#aaa',
+    quadLabel: '#333',
+    nodeLabel: '#333'
+};
+
+const DARK_THEME_COLORS = {
+    defaultNode: '#718096', // gray-500
+    ringStroke: '#4a5568', // gray-600
+    ringLabel: '#a0aec0', // gray-400
+    quadLine: '#718096', // gray-500
+    quadLabel: '#e2e8f0', // gray-200
+    nodeLabel: '#e2e8f0'  // gray-200
 };
 
 const DEFAULT_NODE_COLOR = '#ccc';
@@ -52,6 +71,12 @@ let selectedNodeId = null; // Track currently selected node
 // =============================================================================
 // Utility Functions
 // =============================================================================
+
+/** Checks if the system preference is set to dark mode */
+function isDarkMode() {
+    // Reverted to only check system preference
+    return window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+}
 
 /**
  * Debounce function to limit the rate at which a function can fire.
@@ -138,26 +163,29 @@ function showDetails(item) {
 
     title.textContent = item.label;
     content.innerHTML = `
-        <div class="details-item">
-            <h4>Quadrant</h4>
-            <p>${item.quadrant}</p>
+        <div class="details-item mb-4">
+            <h4 class="font-semibold text-gray-600 dark:text-gray-400 mb-1">Quadrant</h4>
+            <p class="text-gray-800 dark:text-gray-200">${item.quadrant}</p>
         </div>
-        <div class="details-item">
-            <h4>Ring</h4>
-            <p>${item.ring}</p>
+        <div class="details-item mb-4">
+            <h4 class="font-semibold text-gray-600 dark:text-gray-400 mb-1">Ring</h4>
+            <p class="text-gray-800 dark:text-gray-200">${item.ring}</p>
         </div>
-        <div class="details-item">
-            <h4>Owner</h4>
-            <p>${item.owners || 'N/A'}</p>
+        <div class="details-item mb-4">
+            <h4 class="font-semibold text-gray-600 dark:text-gray-400 mb-1">Owner</h4>
+            <p class="text-gray-800 dark:text-gray-200">${item.owners || 'N/A'}</p>
         </div>
-        <div class="details-item">
-            <h4>Description</h4>
-            <p>${item.description || 'No description available.'}</p>
+        <div class="details-item mb-4">
+            <h4 class="font-semibold text-gray-600 dark:text-gray-400 mb-1">Description</h4>
+            <p class="text-gray-800 dark:text-gray-200 text-sm">${item.description || 'No description available.'}</p>
         </div>
-        ${item.moved ? '<div class="details-item"><p class="moved">* This item has been moved recently.</p></div>' : ''}
+        ${item.moved ? '<div class="details-item"><p class="moved text-sm italic text-gray-500 dark:text-gray-400 mt-2">* This item has been moved recently.</p></div>' : ''}
     `;
 
     panel.classList.add('open');
+    // Add class to adjust right position based on Tailwind width
+    panel.classList.remove('right-[-400px]');
+    panel.classList.add('right-0');
 }
 
 /**
@@ -167,6 +195,9 @@ function closeDetails() {
     const panel = document.querySelector(DETAILS_PANEL_SELECTOR);
     if (panel) {
         panel.classList.remove('open');
+        // Reset right position
+        panel.classList.remove('right-0');
+        panel.classList.add('right-[-400px]');
         selectedNodeId = null; // Clear selected node when closing panel
     }
 }
@@ -202,23 +233,26 @@ function createList(data) {
         if (quadrantData.length === 0) return; // Skip empty quadrants
 
         const quadrantDiv = container.append('div')
-            .attr('class', 'quadrant');
+            .attr('class', 'quadrant mb-6'); // Added margin bottom
 
-        quadrantDiv.append('h3').text(quadrant);
+        quadrantDiv.append('h3')
+            .attr('class', 'text-xl font-semibold text-gray-700 dark:text-gray-300 border-b border-gray-200 dark:border-gray-700 pb-2 mb-3') // Added dark mode classes
+            .text(quadrant);
 
         const list = quadrantDiv.append('ul')
-            .attr('class', 'technology-list'); // Added class for potential styling
+            .attr('class', 'technology-list space-y-2'); // Added vertical space between items
 
         list.selectAll('.technology-item')
             .data(quadrantData, d => d.label) // Use label as key
             .join('li')
-            .attr('class', 'technology-item')
+            // Add dark variants for list item background, text, and hover state
+            .attr('class', 'technology-item p-3 bg-gray-50 dark:bg-gray-700 rounded-md cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600 transition duration-150 ease-in-out')
             .on('click', (event, d) => showDetails(d)) // Show details on click
             .html(d => `
-                <span class="label">${d.label}</span>
-                <span class="ring">(${d.ring})</span>
-                <p class="description">${d.description || ''}</p>
-                ${d.moved ? '<p class="moved" style="font-style: italic; color: grey;">Moved</p>' : ''}
+                <span class="label font-medium text-gray-800 dark:text-gray-200">${d.label}</span>
+                <span class="ring text-sm text-gray-500 dark:text-gray-400 ml-2">(${d.ring})</span>
+                <p class="description text-sm text-gray-600 dark:text-gray-400 mt-1">${d.description || ''}</p>
+                ${d.moved ? '<p class="moved text-xs italic text-gray-500 dark:text-gray-400 mt-1">Moved</p>' : ''}
             `);
              // Optional: Add moved indicator to list item
     });
@@ -234,30 +268,60 @@ function createList(data) {
  * @returns {object} Containing svg, radarGroup, size, center, and radius.
  */
 function setupRadarSVG() {
-    const container = document.querySelector(RADAR_CONTAINER_SELECTOR);
-    if (!container) {
-        console.error("Radar container not found:", RADAR_CONTAINER_SELECTOR);
-        return null;
+    // Select the container and SVG
+    const container = d3.select(RADAR_CONTAINER_SELECTOR);
+    if (container.empty()) {
+        console.error(`Radar container not found: ${RADAR_CONTAINER_SELECTOR}`);
+        return { svg: null, radarGroup: null, width: 0, height: 0 };
     }
-    const width = container.clientWidth;
-    const height = container.clientHeight;
-    const size = Math.min(width, height);
-    const center = { x: size / 2, y: size / 2 };
-    const radius = size / 2 - RADAR_MARGIN;
 
-    const svg = d3.select(RADAR_SVG_SELECTOR)
-        .attr('width', size)
-        .attr('height', size)
-        .attr('viewBox', [0, 0, size, size]);
+    // Clear existing SVG content
+    container.select('svg').selectAll('*').remove();
+    const svg = container.select('svg');
 
-    // Clear previous content
-    svg.selectAll('*').remove();
+    // Get dimensions based on the container
+    const boundingRect = container.node().getBoundingClientRect();
+    const width = boundingRect.width;
+    const height = boundingRect.height; // Use full container height
 
-    // Create a group for the radar, centered in the SVG
+    // Create the main group for the radar, centered
+    const radius = Math.min(width, height) / 2 - RADAR_MARGIN; // Calculate radius based on smallest dimension
     const radarGroup = svg.append('g')
-        .attr('transform', `translate(${center.x},${center.y})`);
+        .attr('transform', `translate(${width / 2}, ${height / 2})`); // Center the radar group
 
-    return { svg, radarGroup, size, center, radius };
+    // Add Legend in the top-left corner of the SVG container
+    const legend = svg.append('g')
+        .attr('class', 'legend')
+        .attr('transform', 'translate(20, 20)'); // Position legend slightly offset from top-left
+
+    const legendItemHeight = 20;
+    const legendColorWidth = 15;
+    const legendTextOffset = 5;
+
+    const legendItems = legend.selectAll('.legend-item')
+        // Use Object.entries to get key-value pairs for colors
+        .data(Object.entries(RING_COLORS))
+        .enter()
+        .append('g')
+        .attr('class', 'legend-item')
+        .attr('transform', (d, i) => `translate(0, ${i * legendItemHeight})`);
+
+    legendItems.append('rect')
+        .attr('width', legendColorWidth)
+        .attr('height', legendColorWidth)
+        .style('fill', d => d[1]); // d[1] is the color value
+
+    legendItems.append('text')
+        .attr('x', legendColorWidth + legendTextOffset)
+        .attr('y', legendColorWidth / 2) // Center text vertically relative to the rect
+        .attr('dy', '0.35em') // Vertical alignment adjustment
+        .style('font-size', '12px')
+        // Use theme-aware colors for text
+        .style('fill', () => isDarkMode() ? DARK_THEME_COLORS.quadLabel : LIGHT_THEME_COLORS.quadLabel)
+        .text(d => d[0]); // d[0] is the ring name
+
+    // Return all necessary elements including the calculated radius
+    return { svg, radarGroup, width, height, radius };
 }
 
 /**
@@ -282,6 +346,7 @@ function calculateScales(radius) {
  * @returns {Array} Array of ring label positions.
  */
 function drawRingsAndLabels(radarGroup, radiusScale) {
+    const themeColors = isDarkMode() ? DARK_THEME_COLORS : LIGHT_THEME_COLORS;
     const ringLabelPositions = [];
     
     // Draw rings (from outer to inner)
@@ -294,7 +359,7 @@ function drawRingsAndLabels(radarGroup, radiusScale) {
         radarGroup.append('circle')
             .attr('r', r)
             .attr('fill', 'none')
-            .attr('stroke', '#ddd')
+            .attr('stroke', themeColors.ringStroke)
             .attr('stroke-width', 1)
             .attr('class', `ring ring-${i}`); // Add class for potential styling
 
@@ -316,7 +381,7 @@ function drawRingsAndLabels(radarGroup, radiusScale) {
                 .attr('text-anchor', 'middle')
                 .attr('font-size', '14px')
                 .attr('font-weight', 'bold') // Make ring labels bold
-                .attr('fill', '#666')
+                .attr('fill', themeColors.ringLabel)
                 .attr('class', 'ring-label')
                 .text(RINGS[i]); // Use original index for correct label
         }
@@ -332,6 +397,7 @@ function drawRingsAndLabels(radarGroup, radiusScale) {
  * @param {number} angleSlice The angle allocated to each quadrant.
  */
 function drawQuadrantLinesAndLabels(radarGroup, radius, angleSlice) {
+    const themeColors = isDarkMode() ? DARK_THEME_COLORS : LIGHT_THEME_COLORS;
     QUADRANTS.forEach((quadrant, i) => {
         const angle = i * angleSlice;
         // Calculate line end points based on standard SVG angles (0=right, 90=down)
@@ -346,7 +412,7 @@ function drawQuadrantLinesAndLabels(radarGroup, radius, angleSlice) {
             .attr('y1', 0)
             .attr('x2', x)
             .attr('y2', y)
-            .attr('stroke', '#aaa')
+            .attr('stroke', themeColors.quadLine)
             .attr('stroke-width', 1)
             .attr('class', `quadrant-line quadrant-line-${i}`);
 
@@ -363,6 +429,7 @@ function drawQuadrantLinesAndLabels(radarGroup, radius, angleSlice) {
             .attr('alignment-baseline', 'middle')
             .attr('font-weight', 'bold')
             .attr('font-size', '16px')
+            .attr('fill', themeColors.quadLabel)
             .attr('class', 'quadrant-label'); // Keep class for consistency
 
         // Check if the quadrant label needs splitting
@@ -476,6 +543,7 @@ function createAndRunSimulation(nodes, ringLabelPositions) {
  * @param {object} simulation The D3 force simulation object (for drag behavior).
  */
 function drawNodesOnRadar(radarGroup, nodes, simulation) {
+    const themeColors = isDarkMode() ? DARK_THEME_COLORS : LIGHT_THEME_COLORS;
     // Create node groups (group for circle and text)
     const node = radarGroup.selectAll(".node")
         .data(nodes, d => d.id) // Use unique ID as key
@@ -488,15 +556,15 @@ function drawNodesOnRadar(radarGroup, nodes, simulation) {
     // Add circles to nodes
     node.append("circle")
         .attr("r", NODE_RADIUS)
-        .attr("fill", d => RING_COLORS[d.ring] || DEFAULT_NODE_COLOR)
+        .attr("fill", d => RING_COLORS[d.ring] || themeColors.defaultNode)
         .attr("class", d => `ring-${RINGS.indexOf(d.ring)}`); // Class based on ring
 
     // Add labels to nodes
     node.append("text")
         .attr("x", NODE_LABEL_X_OFFSET)
         .attr("y", NODE_LABEL_Y_OFFSET) // Vertically center roughly
-        .attr("font-size", NODE_FONT_SIZE)
-        .attr("fill", "#333")
+        .attr("font-size", () => window.innerWidth < 768 ? '8px' : NODE_FONT_SIZE) // Responsive font size
+        .attr("fill", themeColors.nodeLabel)
         .style("text-decoration", d => d.moved ? "underline" : "none") // Underline if moved
         .text(d => d.label);
 
@@ -519,8 +587,18 @@ function drawRadar(data) {
 
     // 1. Setup SVG and Dimensions
     const setup = setupRadarSVG();
-    if (!setup) return; // Exit if container not found
-    const { radarGroup, radius } = setup;
+    if (!setup || !setup.radarGroup) { // Check if setup or radarGroup is null
+        console.error("Failed to setup radar SVG or radarGroup is missing.");
+        return; // Exit if setup failed
+    }
+    // Correctly destructure radius along with other needed properties
+    const { radarGroup, radius, width, height } = setup; 
+
+    // Check if radius is valid
+    if (typeof radius !== 'number' || radius <= 0) {
+        console.error("Invalid radius calculated:", radius);
+        return;
+    }
 
     // 2. Calculate Scales
     const { radiusScale, angleSlice } = calculateScales(radius);
@@ -563,17 +641,41 @@ function initializeRadar() {
             // Store in global variable for filtering
             radarData = data.items || [];
             lastModified = data.lastModified || "";
-            
-            // Initialize radar and list views
+
+            // Apply initial theme based *only* on system preference
+            const htmlElement = document.documentElement;
+            if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
+                htmlElement.classList.add('dark');
+            } else {
+                htmlElement.classList.remove('dark');
+            }
+            // Removed logic for checking localStorage and setting toggle state
+
+            // Initialize radar and list views (will use the correct theme)
             drawRadar(radarData);
             createList(radarData);
-            
+
             // Setup event listeners
             window.addEventListener('resize', debounce(() => {
+                // Redraw radar on resize (list is CSS responsive)
                 drawRadar(radarData);
             }, RESIZE_DEBOUNCE_DELAY));
-            
-            // Make the closeDetails function available globally
+
+            // Listen for changes in color scheme preference and apply directly
+            window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', event => {
+                console.log("System color scheme changed. Redrawing...");
+                if (event.matches) {
+                    htmlElement.classList.add('dark');
+                } else {
+                    htmlElement.classList.remove('dark');
+                }
+                // Redraw both radar and list to apply new theme colors
+                drawRadar(radarData);
+                createList(radarData);
+                // Removed check for localStorage override
+            });
+
+            // Make utility functions globally accessible
             window.closeDetails = closeDetails;
             window.applyFilters = applyFilters;
         })
