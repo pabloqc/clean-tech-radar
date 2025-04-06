@@ -1,0 +1,90 @@
+- Label: Kubernetes
+  Quadrant: Platforms
+  Ring: Adopted
+  Moved: false
+  Description: Container orchestration platform for managing containerized applications.
+  Owners: Team B
+
+- Label: Docker
+  Quadrant: Platforms
+  Ring: Adopted
+  Moved: false
+  Description: Platform for developing, shipping, and running applications in containers.
+  Owners: Team A
+
+- Label: Terraform
+  Quadrant: Tools
+  Ring: Adopted
+  Moved: false
+  Description: Infrastructure as Code tool for building, changing, and versioning infrastructure.
+  Owners: Team A
+
+- Label: GitHub Actions
+  Quadrant: Tools
+  Ring: Adopted
+  Moved: false
+  Description: CI/CD platform integrated with GitHub for automating workflows.
+  Owners: Team B
+
+- Label: Python
+  Quadrant: Programming Languages & Frameworks
+  Ring: Adopted
+  Moved: false
+  Description: Versatile programming language with strong ecosystem for data science and automation.
+  Owners: Team B
+
+- Label: TypeScript
+  Quadrant: Programming Languages & Frameworks
+  Ring: Adopted
+  Moved: true
+  Description: Typed superset of JavaScript that compiles to plain JavaScript.
+  Owners: Team A
+
+- Label: Microservices
+  Quadrant: Techniques
+  Ring: Adopted
+  Moved: false
+  Description: Architectural style that structures an application as a collection of services.
+  Owners: Team B
+
+- Label: Test-Driven Development
+  Quadrant: Techniques
+  Ring: Adopted
+  Moved: false
+  Description: Software development process that relies on the repetition of a very short development cycle.
+  Owners: Team A
+
+- Label: Rust
+  Quadrant: Programming Languages & Frameworks
+  Ring: In Discovery
+  Moved: true
+  Description: Systems programming language focused on safety, speed, and concurrency.
+  Owners: Team B
+
+- Label: Serverless
+  Quadrant: Techniques
+  Ring: In Discovery
+  Moved: false
+  Description: Cloud computing execution model where the cloud provider runs the server.
+  Owners: Team A
+
+- Label: GraphQL
+  Quadrant: Tools
+  Ring: In Discovery
+  Moved: true
+  Description: Query language for APIs and a runtime for fulfilling those queries.
+  Owners: Team B
+
+- Label: WebAssembly
+  Quadrant: Programming Languages & Frameworks
+  Ring: Not Recommended
+  Moved: true
+  Description: Binary instruction format for a stack-based virtual machine.
+  Owners: Team A
+
+- Label: Quantum Computing
+  Quadrant: Techniques
+  Ring: Not Recommended
+  Moved: false
+  Description: Computing paradigm that uses quantum-mechanical phenomena.
+  Owners: Team B
